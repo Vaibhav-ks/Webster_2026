@@ -1,9 +1,12 @@
 import { useEditorStore } from './store/useEditorStore.js';
+import './store/useTheme.js';
 import UploadPanel from './components/UploadPanel.jsx';
 import Toolbar from './components/Toolbar.jsx';
 import StatusBar from './components/StatusBar.jsx';
 import VideoPreview from './components/VideoPreview.jsx';
+import Timeline from './components/Timeline.jsx';
 import TranscriptEditor, { useTranscriptShortcuts } from './components/TranscriptEditor.jsx';
+import TranscriptPanel from './components/TranscriptPanel.jsx';
 
 export default function App() {
   const videoUrl = useEditorStore((s) => s.videoUrl);
@@ -12,25 +15,20 @@ export default function App() {
 }
 
 function Editor() {
-  const status = useEditorStore((s) => s.status);
   useTranscriptShortcuts();
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="ambient flex h-full flex-col">
       <Toolbar />
-      <main className="grid min-h-0 flex-1 gap-4 p-4 lg:grid-cols-2">
-        <section className="flex flex-col gap-4">
+      <main className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:overflow-hidden lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,1fr)]">
+        <section className="fade-up flex min-h-[520px] min-w-0 flex-col gap-4 lg:min-h-0">
           <VideoPreview />
           <StatusBar />
-          {/* Phase 4: <Timeline /> goes here */}
+          <Timeline />
         </section>
-        <section className="min-h-0 overflow-y-auto rounded-xl bg-zinc-900/60 p-5">
-          {status === 'ready' ? (
-            <TranscriptEditor />
-          ) : (
-            <p className="text-zinc-500">The transcript will appear here once transcription finishes.</p>
-          )}
-        </section>
+        <TranscriptPanel>
+          <TranscriptEditor />
+        </TranscriptPanel>
       </main>
     </div>
   );

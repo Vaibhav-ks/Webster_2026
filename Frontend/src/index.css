@@ -1,0 +1,217 @@
+@import "tailwindcss";
+
+/* Theme: semantic colour tokens. Components use bg-surface / text-fg / border-line etc.
+   and the [data-theme] attribute on <html> swaps the palette. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --color-scarlet-300: #ff8a8f;
+  --color-scarlet-400: #f2545b;
+  --color-scarlet-500: #e0313a;
+  --color-scarlet-600: #b81f28;
+  --color-scarlet-700: #8f1219;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@theme inline {
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-raised: var(--c-raised);
+  --color-sunken: var(--c-sunken);
+  --color-hover: var(--c-hover);
+  --color-line: var(--c-line);
+  --color-line-strong: var(--c-line-strong);
+  --color-fg: var(--c-fg);
+  --color-muted: var(--c-muted);
+  --color-subtle: var(--c-subtle);
+  --color-accent: var(--c-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-highlight: var(--c-highlight);
+  --color-highlight-fg: var(--c-highlight-fg);
+  --color-wave: var(--c-wave);
+  --color-wave-bg: var(--c-wave-bg);
+  --color-caption: var(--c-caption);
+}
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --c-canvas: #0b0b0e;
+  --c-surface: #141418;
+  --c-raised: #1c1c22;
+  --c-sunken: #0f0f13;
+  --c-hover: #26262e;
+  --c-line: rgb(255 255 255 / 0.07);
+  --c-line-strong: rgb(255 255 255 / 0.14);
+  --c-fg: #f4f4f5;
+  --c-muted: #a1a1aa;
+  --c-subtle: #6b6b75;
+  --c-accent: #f2545b;
+  --c-accent-soft: rgb(242 84 91 / 0.16);
+  --c-highlight: #fbbf24;
+  --c-highlight-fg: #18120a;
+  --c-wave: #34d399;
+  --c-wave-bg: rgb(16 185 129 / 0.16);
+  --c-caption: #3a3d4c;
+  --glow: rgb(224 49 58 / 0.22);
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -12px rgb(0 0 0 / 0.6);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --c-canvas: #f4f3f1;
+  --c-surface: #ffffff;
+  --c-raised: #f7f6f4;
+  --c-sunken: #efedea;
+  --c-hover: #e9e7e3;
+  --c-line: rgb(20 20 30 / 0.08);
+  --c-line-strong: rgb(20 20 30 / 0.16);
+  --c-fg: #17171c;
+  --c-muted: #55555f;
+  --c-subtle: #8c8c96;
+  --c-accent: #d42a33;
+  --c-accent-soft: rgb(212 42 51 / 0.12);
+  --c-highlight: #fcd34d;
+  --c-highlight-fg: #2a1d03;
+  --c-wave: #0f9f6e;
+  --c-wave-bg: rgb(16 185 129 / 0.14);
+  --c-caption: #dfe1ea;
+  --glow: rgb(224 49 58 / 0.14);
+  --shadow: 0 1px 2px rgb(20 20 30 / 0.05), 0 12px 32px -16px rgb(20 20 30 / 0.18);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--c-canvas);
+  color: var(--c-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+/* Smooth theme crossfade without animating every interaction. */
+.theme-transition * {
+  transition: background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease, fill 0.35s ease !important;
+}
+
+.panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.glass {
+  background: color-mix(in oklab, var(--c-surface) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+}
+
+/* Ambient glow behind the app. */
+.ambient {
+  background:
+    radial-gradient(60rem 30rem at 10% -10%, var(--glow), transparent 60%),
+    radial-gradient(50rem 25rem at 110% 110%, rgb(52 211 153 / 0.06), transparent 60%);
+}
+
+.stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgb(224 49 58 / 0.55) 0 6px,
+    rgb(224 49 58 / 0.18) 6px 12px
+  );
+}
+
+/* Thin, theme-aware scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-line-strong) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--c-line-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* Range input styled to match (volume). */
+input[type="range"].slim {
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.25);
+}
+input[type="range"].slim::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: white;
+}
+input[type="range"].slim::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 999px;
+  background: white;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: fade-up 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.35), transparent) 0 0 / 50% 100% no-repeat,
+    var(--c-accent);
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

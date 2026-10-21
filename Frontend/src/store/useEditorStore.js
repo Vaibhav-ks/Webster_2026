@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { addRange, subtractRange } from '../lib/ranges.js';
 import { deriveGaps, buildTranscriptItems } from '../lib/transcript.js';
+import { itemsInRange } from '../lib/timeline.js';
 
 const HISTORY_LIMIT = 200;
 
@@ -35,8 +36,13 @@ const initialState = {
   past: [],
   future: [],
 
+  // timeline visuals (derived from the media, not edit state)
+  peaks: null, // Float32Array, 0..1 loudness per 10 ms
+  thumbnails: [], // [{ t, url }] sorted by t
+
   // ui
   selection: null, // { anchor, focus } indices into items
+  selectionRange: null, // { start, end } exact time range from a timeline drag (overrides item bounds)
   activeWordId: null,
 };
 
@@ -112,8 +118,22 @@ export const useEditorStore = create((set, get) => ({
     });
   },
 
+  // ---- media visuals ----
+  setPeaks: (peaks) => set({ peaks }),
+  addThumbnail: (thumb) =>
+    set({ thumbnails: [...get().thumbnails, thumb].sort((a, b) => a.t - b.t) }),
+
   // ---- ui ----
-  setSelection: (selection) => set({ selection }),
+  setSelection: (selection) => set({ selection, selectionRange: null }),
+  /** Select an exact (already snapped) time range from the timeline. */
+  setRangeSelection: (range) => {
+    if (!range || range.end - range.start < 1e-3) {
+      set({ selection: null, selectionRange: null });
+      return;
+    }
+    const hit = itemsInRange(get().items, range);
+    set({ selectionRange: range, selection: hit ? { anchor: hit.lo, focus: hit.hi } : null });
+  },
   setActiveWordId: (id) => {
     if (get().activeWordId !== id) set({ activeWordId: id });
   },
@@ -121,7 +141,12 @@ export const useEditorStore = create((set, get) => ({
 
 /** Selected items as { lo, hi, range } or null. */
 export function getSelectionSpan(state) {
-  const { selection, items } = state;
+  const { selection, selectionRange, items } = state;
+  if (selectionRange) {
+    const lo = selection ? Math.min(selection.anchor, selection.focus) : null;
+    const hi = selection ? Math.max(selection.anchor, selection.focus) : null;
+    return { lo, hi, range: selectionRange };
+  }
   if (!selection || !items.length) return null;
   const lo = Math.min(selection.anchor, selection.focus);
   const hi = Math.max(selection.anchor, selection.focus);

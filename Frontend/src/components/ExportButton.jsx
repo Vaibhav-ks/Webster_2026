@@ -3,8 +3,12 @@ import { useEditorStore } from '../store/useEditorStore.js';
 import { buildEDL } from '../lib/edl.js';
 import { runExport } from '../media/runExport.js';
 
+import * as I from './icons.jsx';
+
 const btn =
-  'rounded-lg px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40';
+  'inline-flex h-9 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition-all duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40';
+const primary = 'bg-gradient-to-b from-scarlet-400 to-scarlet-600 text-white shadow-[0_8px_24px_-8px_var(--glow)] hover:brightness-110';
+const secondary = 'border border-line bg-raised text-fg hover:bg-hover';
 
 function formatBytes(n) {
   return n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1e3)} KB`;
@@ -57,28 +61,28 @@ export default function ExportButton() {
   return (
     <>
       <button
-        className={`${btn} bg-scarlet-600 hover:bg-scarlet-500`}
+        className={`${btn} ${primary}`}
         disabled={disabled}
         onClick={start}
         title={edl.length === 0 ? 'Everything is cut' : 'Render the edited video in your browser'}
       >
-        Export MP4
+        <I.Download /> Export
       </button>
 
       {job && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-zinc-900 p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="panel fade-up w-full max-w-md p-6">
             {job.phase === 'running' && (
               <>
                 <h2 className="text-lg font-semibold">Exporting…</h2>
-                <p className="mt-1 text-sm text-zinc-400">Rendering in your browser. Nothing is uploaded.</p>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
-                  <div className="h-full bg-scarlet-500" style={{ width: `${job.progress * 100}%` }} />
+                <p className="mt-1 text-sm text-muted">Rendering in your browser. Nothing is uploaded.</p>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-sunken">
+                  <div className="shimmer h-full rounded-full transition-[width]" style={{ width: `${job.progress * 100}%` }} />
                 </div>
-                <div className="mt-2 text-right text-sm tabular-nums text-zinc-400">
+                <div className="mt-2 text-right text-sm tabular-nums text-muted">
                   {Math.round(job.progress * 100)}%
                 </div>
-                <button className={`${btn} mt-4 bg-zinc-800 hover:bg-zinc-700`} onClick={() => cancelRef.current?.()}>
+                <button className={`${btn} mt-4 ${secondary}`} onClick={() => cancelRef.current?.()}>
                   Cancel
                 </button>
               </>
@@ -87,7 +91,7 @@ export default function ExportButton() {
             {job.phase === 'done' && (
               <>
                 <h2 className="text-lg font-semibold">Export finished</h2>
-                <ul className="mt-3 space-y-1 text-sm text-zinc-300">
+                <ul className="mt-3 space-y-1 text-sm text-muted">
                   <li>
                     {formatBytes(job.size)} · {job.info.width}×{job.info.height} · {job.info.videoCodec}
                     {job.info.audioCodec ? ` + ${job.info.audioCodec}` : ' (no audio)'}
@@ -99,12 +103,12 @@ export default function ExportButton() {
                 <video src={job.url} controls className="mt-4 w-full rounded-lg bg-black" />
                 <div className="mt-4 flex gap-2">
                   <button
-                    className={`${btn} bg-scarlet-600 hover:bg-scarlet-500`}
+                    className={`${btn} ${primary}`}
                     onClick={() => download(job.url, outputName(file))}
                   >
                     Download again
                   </button>
-                  <button className={`${btn} bg-zinc-800 hover:bg-zinc-700`} onClick={() => setJob(null)}>
+                  <button className={`${btn} ${secondary}`} onClick={() => setJob(null)}>
                     Close
                   </button>
                 </div>
@@ -113,9 +117,9 @@ export default function ExportButton() {
 
             {job.phase === 'error' && (
               <>
-                <h2 className="text-lg font-semibold text-red-300">Export failed</h2>
-                <p className="mt-2 text-sm text-zinc-300">{job.message}</p>
-                <button className={`${btn} mt-4 bg-zinc-800 hover:bg-zinc-700`} onClick={() => setJob(null)}>
+                <h2 className="text-lg font-semibold text-red-500">Export failed</h2>
+                <p className="mt-2 text-sm text-muted">{job.message}</p>
+                <button className={`${btn} mt-4 ${secondary}`} onClick={() => setJob(null)}>
                   Close
                 </button>
               </>

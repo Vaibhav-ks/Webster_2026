@@ -1,10 +1,12 @@
 import { useEditorStore, getSelectionSpan } from '../store/useEditorStore.js';
 import { isSpanRemoved } from '../lib/edl.js';
+import { rangeIsRemoved } from '../lib/timeline.js';
 
 /** True when every selected item is already deleted (so the action is "restore"). */
 export function selectionIsRemoved(state) {
   const span = getSelectionSpan(state);
   if (!span) return false;
+  if (state.selectionRange) return rangeIsRemoved(span.range, state.removedRanges);
   for (let i = span.lo; i <= span.hi; i++) {
     if (!isSpanRemoved(state.items[i], state.removedRanges)) return false;
   }

@@ -96,3 +96,47 @@ test('chunkAudio cuts at the quietest point and covers all samples', () => {
   assert.equal(chunks[chunks.length - 1].end, samples.length);
   for (let i = 1; i < chunks.length; i++) assert.equal(chunks[i].start, chunks[i - 1].end);
 });
+
+// ---- timeline ----
+import {
+  snapSeek, wordBoundaries, nextBoundary, prevBoundary, tickStep, formatTick,
+  itemsInRange, rangeIsRemoved, moveRangeEdge,
+} from './timeline.js';
+
+test('snapSeek never lands inside a word', () => {
+  const gaps = deriveGaps(words, duration);
+  for (let t = 0; t <= duration; t += 0.01) {
+    const s = snapSeek(t, words, gaps, duration);
+    for (const w of words) assert.ok(!(s > w.start + 1e-9 && s < w.end - 1e-9), `t=${t} -> ${s} inside ${w.text}`);
+  }
+  assert.equal(snapSeek(1.1, words, gaps, duration), 1.0); // nearer the start
+  assert.equal(snapSeek(1.35, words, gaps, duration), 1.4); // nearer the end
+  assert.equal(snapSeek(3.3, words, gaps, duration), 3.3); // free inside a long silence
+  assert.equal(snapSeek(-2, words, gaps, duration), 0);
+});
+
+test('word boundary stepping', () => {
+  const b = wordBoundaries(words, duration);
+  assert.deepEqual(b, [0, 1, 1.4, 1.5, 1.7, 1.8, 2.2, 5, 5.5, 6]);
+  assert.equal(nextBoundary(1.0, b), 1.4);
+  assert.equal(prevBoundary(1.0, b), 0);
+  assert.equal(nextBoundary(6, b), 6);
+});
+
+test('tick step keeps labels apart', () => {
+  assert.equal(tickStep(100).major, 1);
+  assert.equal(tickStep(10).major, 10);
+  assert.equal(formatTick(65, 5), '1:05');
+  assert.equal(formatTick(2.5, 0.5), '0:02.50');
+});
+
+test('range selection helpers', () => {
+  const items = buildTranscriptItems(words, deriveGaps(words, duration));
+  const sel = itemsInRange(items, { start: 1.0, end: 1.7 });
+  assert.equal(items[sel.lo].id, 'w0');
+  assert.equal(items[sel.hi].id, 'w1');
+  assert.equal(rangeIsRemoved({ start: 1, end: 2 }, [{ start: 0.5, end: 2.5 }]), true);
+  assert.equal(rangeIsRemoved({ start: 1, end: 2 }, [{ start: 1.5, end: 2.5 }]), false);
+  const moved = moveRangeEdge([{ start: 1, end: 2 }, { start: 3, end: 4 }], 0, 'end', 3.5);
+  assert.deepEqual(moved[0], { start: 1, end: 3 }); // clamped to neighbour
+});

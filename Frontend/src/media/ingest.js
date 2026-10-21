@@ -3,6 +3,8 @@
 import { useEditorStore } from '../store/useEditorStore.js';
 import { validateFile, readVideoMetadata, extractAudio } from './extractAudio.js';
 import { transcribe } from './transcribe.js';
+import { generateThumbnails, computePeaks } from './thumbnails.js';
+import { WHISPER_SAMPLE_RATE } from '../lib/config.js';
 
 export async function ingestFile(file) {
   const store = useEditorStore.getState();
@@ -18,9 +20,11 @@ export async function ingestFile(file) {
   try {
     const meta = await readVideoMetadata(videoUrl);
     store.loadMedia({ file, videoUrl, ...meta });
+    generateThumbnails(videoUrl, meta.duration).catch((e) => console.warn('thumbnails', e));
 
     store.setStatus('extracting', 'Extracting audio…');
     const audio = await extractAudio(file);
+    useEditorStore.getState().setPeaks(computePeaks(audio, WHISPER_SAMPLE_RATE));
 
     store.setStatus('model', 'Loading speech model (first time only)…');
     let started = false;

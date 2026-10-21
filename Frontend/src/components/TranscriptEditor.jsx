@@ -4,6 +4,7 @@ import { isSpanRemoved } from '../lib/edl.js';
 import { gapLabel } from '../lib/transcript.js';
 import { player } from '../media/player.js';
 import { deleteOrRestoreSelection } from './editActions.js';
+import { stepBoundary } from './Timeline.jsx';
 
 /**
  * Read-only transcript (FR-3, FR-11). Each word and gap is its own element; there is no
@@ -47,11 +48,11 @@ export default function TranscriptEditor() {
   };
 
   if (!items.length) {
-    return <p className="text-zinc-500">No speech was found in this video.</p>;
+    return <p className="text-subtle">No speech was found in this video.</p>;
   }
 
   return (
-    <div className="select-none text-lg leading-relaxed">
+    <div className="select-none text-[17px] leading-[2.1] text-fg/90">
       {items.map((item, i) => (
         <Item
           key={item.id}
@@ -77,11 +78,11 @@ const Item = memo(function Item({ item, index, removed, selected, onPointerDown,
     if (active && playing) ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [active]);
 
-  const base = 'cursor-pointer rounded px-0.5 transition-colors';
+  const base = 'cursor-pointer rounded-md px-[3px] py-[1px] transition-[background-color,color,box-shadow] duration-150';
   const state = [
-    removed ? 'line-through decoration-scarlet-500 decoration-2 text-zinc-600' : '',
-    selected ? 'bg-scarlet-500/30' : 'hover:bg-zinc-800',
-    active && !removed ? 'bg-amber-300 text-zinc-950' : '',
+    removed ? 'line-through decoration-accent decoration-2 text-subtle/70' : '',
+    selected ? 'bg-accent-soft text-fg ring-1 ring-accent/40' : 'hover:bg-hover',
+    active && !removed ? '!bg-highlight !text-highlight-fg shadow-[0_2px_12px_-2px_var(--c-highlight)]' : '',
   ].join(' ');
 
   const props = {
@@ -93,8 +94,12 @@ const Item = memo(function Item({ item, index, removed, selected, onPointerDown,
 
   if (item.kind === 'gap') {
     return (
-      <span {...props} className={`${base} ${state} mx-0.5 inline-block text-sm text-zinc-500 italic`}>
-        [ {gapLabel(item)} ]
+      <span
+        {...props}
+        className={`${base} ${state} mx-0.5 inline-flex items-center gap-1 border border-dashed border-line-strong align-middle font-mono text-[11px] leading-5 text-subtle`}
+      >
+        <span className="inline-block h-1 w-1 rounded-full bg-current opacity-60" />
+        {gapLabel(item)}
       </span>
     );
   }
@@ -109,7 +114,7 @@ const Item = memo(function Item({ item, index, removed, selected, onPointerDown,
 export function useTranscriptShortcuts() {
   useEffect(() => {
     const onKey = (e) => {
-      if (e.target instanceof HTMLElement && e.target.closest('input, textarea, video')) return;
+      if (e.target instanceof HTMLElement && e.target.closest('input, textarea')) return;
       const s = useEditorStore.getState();
       const mod = e.ctrlKey || e.metaKey;
 
@@ -128,6 +133,10 @@ export function useTranscriptShortcuts() {
       } else if (e.key === ' ') {
         e.preventDefault();
         player.togglePlay();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        // Step the playhead word edge by word edge: never lands mid-word.
+        e.preventDefault();
+        stepBoundary(e.key === 'ArrowRight' ? 1 : -1);
       }
     };
     window.addEventListener('keydown', onKey);

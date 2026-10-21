@@ -31,6 +31,32 @@ browser caches it.
 - **Export MP4**, rendered entirely in the browser in a Web Worker (WebCodecs + mediabunny):
   progress bar, cancel, in-dialog preview, download, and render speed (× real time)
 
+## Timeline (Phase 4)
+
+`src/components/Timeline.jsx`, under the preview:
+
+- **Tracks:** ruler, word track (one chip per word / pause), video filmstrip, audio waveform.
+  Thumbnails come from a hidden `<video>` (`src/media/thumbnails.js`); the waveform from the
+  same 16 kHz audio Whisper uses (`computePeaks`).
+- **Synchronised:** the timeline has no edit state of its own. It reads `words`, `gaps` and
+  `removedRanges` from the store, and the playhead reads the `<video>` time every frame. Cutting
+  in the transcript shows up on the timeline instantly, and the other way round.
+- **Never mid-word:** every time the timeline produces goes through `snapSeek` / `snapCut`
+  (`src/lib/timeline.js`, `src/lib/snap.js`). Clicking or scrubbing seeks to the nearest word
+  edge (free inside silences). Drag-selections and trim handles snap the same way. The dashed
+  hover guide shows where a click will land before you click.
+- **Edit:** drag on the tracks to select a range, then Delete. Drag the red handles on a cut to
+  trim it. Click a word chip to select it; Shift-click extends the selection.
+- **Navigate:** ← / → step word edge by word edge. Ctrl/⌘ + wheel or `+` / `-` zoom, `0` fits.
+  The crosshair button follows the playhead during playback.
+
+The preview has custom controls: the scrub bar runs over the *edited* timeline (cut points are
+marked), snaps the same way, and a live caption shows the current word.
+
+Light and dark themes: toggle in the header. The choice is remembered per browser and defaults
+to the system setting. Colours are CSS variables in `src/index.css` (`--c-*`), used through
+Tailwind tokens such as `bg-surface`, `text-fg`, `border-line`.
+
 ## Export pipeline
 
 `src/media/exporter.js`, run from `src/workers/export.worker.js`:
@@ -52,6 +78,7 @@ src/
     edl.js          EDL, isSpanRemoved, nextPlayableTime, source<->output time
     transcript.js   gap derivation, transcript items, word lookup
     snap.js         snapCut for timeline mode
+    timeline.js     snapSeek, word-edge stepping, ruler ticks, range-selection helpers
     chunkAudio.js   splitting audio for Whisper
   store/          Zustand store: words, removedRanges, undo/redo, selection
   media/          Browser media code: audio extraction, worker wrapper, ingest flow, player handle
