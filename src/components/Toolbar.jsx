@@ -2,6 +2,7 @@ import { useEditorStore } from '../store/useEditorStore.js';
 import { editedDuration } from '../lib/edl.js';
 import { formatTime } from '../lib/transcript.js';
 import { deleteOrRestoreSelection, selectionIsRemoved } from './editActions.js';
+import ExportButton from './ExportButton.jsx';
 
 const btn =
   'rounded-lg bg-zinc-800 px-3 py-1.5 text-sm font-medium hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40';
@@ -36,6 +37,7 @@ export default function Toolbar() {
             {formatTime(edited)} / {formatTime(s.duration)}
           </span>
         )}
+        <ExportButton />
         <button className={btn} onClick={s.reset}>
           New video
         </button>

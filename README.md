@@ -28,6 +28,19 @@ browser caches it.
 - Undo / redo (Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y), Space to play/pause
 - Preview skips removed ranges while playing; the current word is highlighted
 - Edited length shown next to the original length
+- **Export MP4**, rendered entirely in the browser in a Web Worker (WebCodecs + mediabunny):
+  progress bar, cancel, in-dialog preview, download, and render speed (× real time)
+
+## Export pipeline
+
+`src/media/exporter.js`, run from `src/workers/export.worker.js`:
+
+1. Build the EDL from `removedRanges` (the same function the preview uses).
+2. For each kept range, decode video frames and audio samples separately (WebCodecs via mediabunny).
+3. Rebase timestamps: both tracks share one running offset, so the output is continuous and in sync.
+4. Video frames are drawn onto an OffscreenCanvas, then encoded. Subtitles, titles and b-roll will be drawn here later.
+5. Audio is trimmed to the exact sample at each cut, with a 5 ms fade so cuts don't click.
+6. Mux to MP4 and download. Codec choice: H.264 (falls back to VP9 / AV1), AAC (falls back to Opus).
 
 ## How the code is organised
 
