@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  --color-scarlet-400: #f2545b;
+  --color-scarlet-500: #e0313a;
+  --color-scarlet-600: #b81f28;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
