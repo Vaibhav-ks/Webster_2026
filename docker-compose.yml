@@ -1,0 +1,20 @@
+# Local PostgreSQL for the optional backend:  docker compose up -d db
+# Then: cd Backend && cp .env.example .env && npm install && npm run migrate && npm run dev
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: scarlet
+      POSTGRES_PASSWORD: scarlet
+      POSTGRES_DB: scarlet
+    ports:
+      - "5432:5432"
+    volumes:
+      - scarlet-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scarlet"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  scarlet-pg:
