@@ -7,10 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test \"src/lib/*.test.js\""
+    "test": "node --test \"src/lib/*.test.js\" \"src/persistence/*.test.js\""
   },
   "dependencies": {
     "@huggingface/transformers": "^3.7.0",
+    "hash-wasm": "^4.12.0",
     "mediabunny": "^1.61.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

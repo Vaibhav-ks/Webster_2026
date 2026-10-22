@@ -3,6 +3,7 @@ import { ingestFile } from '../media/ingest.js';
 import { useEditorStore } from '../store/useEditorStore.js';
 import ThemeToggle from './ThemeToggle.jsx';
 import { Logo } from './Toolbar.jsx';
+import AccountMenu from '../account/AccountMenu.jsx';
 import * as I from './icons.jsx';
 
 const FEATURES = [
@@ -25,7 +26,10 @@ export default function UploadPanel() {
     <div className="ambient relative flex h-full flex-col overflow-y-auto">
       <header className="flex items-center justify-between px-6 py-4">
         <Logo />
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <AccountMenu />
+        </div>
       </header>
 
       <div className="flex flex-1 items-center justify-center px-6 pb-16">

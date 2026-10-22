@@ -5,6 +5,8 @@ import { deleteOrRestoreSelection, selectionIsRemoved } from './editActions.js';
 import ExportButton from './ExportButton.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 import * as I from './icons.jsx';
+import AccountMenu from '../account/AccountMenu.jsx';
+import { SaveProjectButton } from '../account/SaveControls.jsx';
 
 const btn =
   'inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-muted transition-all duration-150 hover:bg-hover hover:text-fg active:scale-95 disabled:pointer-events-none disabled:opacity-35';
@@ -73,7 +75,9 @@ export default function Toolbar() {
         <button className={btn} onClick={s.reset} title="Open another video">
           <I.Plus /> <span className="hidden md:inline">New</span>
         </button>
+        <SaveProjectButton />
         <ExportButton />
+        <AccountMenu />
       </div>
     </header>
   );
