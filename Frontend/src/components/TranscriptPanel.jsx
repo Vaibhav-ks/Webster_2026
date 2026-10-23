@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useEditorStore } from '../store/useEditorStore.js';
 import { isSpanRemoved } from '../lib/edl.js';
 import * as I from './icons.jsx';
+import FillerReview, { RemoveFillersButton } from './FillerReview.jsx';
 
 /** Card around the transcript: header with live stats, scroll area, shortcut hints. */
 export default function TranscriptPanel({ children }) {
@@ -22,9 +23,12 @@ export default function TranscriptPanel({ children }) {
           <div className="ml-auto flex items-center gap-2 text-[11px] text-muted">
             <span className="rounded-full border border-line px-2 py-0.5 tabular-nums">{words.length} words</span>
             {cut > 0 && <span className="rounded-full bg-accent-soft px-2 py-0.5 tabular-nums text-accent">{cut} cut</span>}
+            <RemoveFillersButton />
           </div>
         )}
       </div>
+
+      {ready && <FillerReview />}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         {ready ? children : <Skeleton />}

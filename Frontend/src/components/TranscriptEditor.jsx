@@ -5,6 +5,7 @@ import { gapLabel } from '../lib/transcript.js';
 import { player } from '../media/player.js';
 import { deleteOrRestoreSelection } from './editActions.js';
 import { stepBoundary } from './Timeline.jsx';
+import { KEEP } from '../lib/fillers.js';
 
 /**
  * Read-only transcript (FR-3, FR-11). Each word and gap is its own element; there is no
@@ -21,6 +22,18 @@ export default function TranscriptEditor() {
   const dragging = useRef(false);
 
   const removed = useMemo(() => items.map((it) => isSpanRemoved(it, removedRanges)), [items, removedRanges]);
+
+  // While a filler review is open, mark its candidates: 'cut' = selected, 'review' = not yet.
+  const fillerReview = useEditorStore((s) => s.fillerReview);
+  const proposals = useMemo(() => {
+    const map = new Map();
+    if (fillerReview?.phase !== 'review') return map;
+    for (const c of fillerReview.candidates) {
+      if (c.label === KEEP && !fillerReview.selected[c.id]) continue;
+      for (const id of c.wordIds) map.set(id, fillerReview.selected[c.id] ? 'cut' : 'review');
+    }
+    return map;
+  }, [fillerReview]);
 
   const span = getSelectionSpan({ selection, items });
 
@@ -59,6 +72,7 @@ export default function TranscriptEditor() {
           item={item}
           index={i}
           removed={removed[i]}
+          proposal={proposals.get(item.id) ?? null}
           selected={span ? i >= span.lo && i <= span.hi : false}
           onPointerDown={onPointerDown}
           onPointerEnter={onPointerEnter}
@@ -68,7 +82,7 @@ export default function TranscriptEditor() {
   );
 }
 
-const Item = memo(function Item({ item, index, removed, selected, onPointerDown, onPointerEnter }) {
+const Item = memo(function Item({ item, index, removed, proposal, selected, onPointerDown, onPointerEnter }) {
   const active = useEditorStore((s) => s.activeWordId === item.id);
   const ref = useRef(null);
 
@@ -83,11 +97,14 @@ const Item = memo(function Item({ item, index, removed, selected, onPointerDown,
     removed ? 'line-through decoration-accent decoration-2 text-subtle/70' : '',
     selected ? 'bg-accent-soft text-fg ring-1 ring-accent/40' : 'hover:bg-hover',
     active && !removed ? '!bg-highlight !text-highlight-fg shadow-[0_2px_12px_-2px_var(--c-highlight)]' : '',
+    !removed && proposal === 'cut' ? 'underline decoration-wavy decoration-accent decoration-[1.5px] underline-offset-[5px]' : '',
+    !removed && proposal === 'review' ? 'underline decoration-dotted decoration-highlight decoration-2 underline-offset-[5px]' : '',
   ].join(' ');
 
   const props = {
     ref,
     'data-index': index,
+    'data-item-id': item.id,
     onPointerDown: (e) => onPointerDown(index, e),
     onPointerEnter: () => onPointerEnter(index),
   };

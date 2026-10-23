@@ -27,5 +27,28 @@ export const CHUNK_MIN_S = 20;
 /** Chunks quieter than this RMS are treated as silence and not sent to Whisper (stops hallucinations). */
 export const SILENCE_RMS = 0.003;
 
+// ---- Filler detection (src/lib/fillers.js, src/lib/acoustics.js) ----
+// These are hand-set starting points, NOT values fitted on labelled data. Tune them
+// with the evaluation procedure in the README before trusting them more.
+
+/** Energy envelope hop (seconds). 10 ms matches the waveform peaks. */
+export const ENERGY_HOP_S = 0.01;
+/** Rule score at or above this -> FILLER (pre-selected); at or below KEEP_MAX -> KEEP. */
+export const FILLER_MIN_SCORE = 0.75;
+export const KEEP_MAX_SCORE = 0.3;
+/** Silence (audio-verified) of at least this long counts as a pause next to a candidate. */
+export const FILLER_PAUSE_S = 0.25;
+/** Voiced length / expected length for its letters at or above this counts as drawn out. */
+export const FILLER_ELONGATION = 2.0;
+/** A single word timed longer than this is suspicious (Whisper often stretches words over pauses). */
+export const FILLER_MAX_WORD_S = 1.5;
+/** Cuts shorter than this are dropped (they would only produce a click). */
+export const FILLER_MIN_CUT_S = 0.03;
+/** Voiced sound inside a pause, with no transcribed word, between these lengths is flagged for review. */
+export const SOUND_MIN_S = 0.15;
+export const SOUND_MAX_S = 1.0;
+/** ...only in pauses up to this long (longer ones are scene breaks, music, etc.). */
+export const SOUND_MAX_GAP_S = 3;
+
 export const ACCEPTED_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
 export const ACCEPTED_EXTENSIONS = ['.mp4', '.webm', '.mov'];

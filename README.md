@@ -57,6 +57,72 @@ Light and dark themes: toggle in the header. The choice is remembered per browse
 to the system setting. Colours are CSS variables in `src/index.css` (`--c-*`), used through
 Tailwind tokens such as `bg-surface`, `text-fg`, `border-line`.
 
+## Filler removal
+
+**Transcript → Remove fillers**. The app finds hesitations, discourse markers, repeated words
+and restarts, and lists them for review. Confident items are pre-selected and uncertain ones are
+not. **Remove N** applies the selection as one edit. Nothing is cut until you apply, and **Undo**
+(in the panel or Ctrl+Z) reverts the whole batch in one step.
+
+Everything runs locally: no API, no model download, no new dependency. Ambiguous cases go to
+review instead of to an LLM. There is no AI backend, sending transcripts out would break
+"nothing is uploaded", an LLM can't hear the audio, and its confidence isn't calibrated.
+
+### How a decision is made (`src/lib/fillers.js`, `src/lib/acoustics.js`)
+
+1. **Candidates** come from the Whisper words:
+   - hesitations: um, uh, erm (strong); ah, hmm, er (weak, can be reactions)
+   - context words: like, well, so, you know, I mean, kind of / sort of, actually, basically, literally
+   - repeated words, restarted 2–3 word phrases, and cut-off words ("th- the")
+   - audio only: voiced sound inside a pause with no transcribed word (Whisper often drops "um")
+2. **Context rules** use neighbouring words and Whisper's punctuation. For example, "I like" /
+   "looks like" / "the like button" → KEEP, ", like," → filler-leaning, "as well" → KEEP, "a kind of" → KEEP,
+   and "that that" / "very very" → review.
+3. **Acoustic evidence** comes from a 10 ms RMS envelope computed from the audio we already decode:
+   - silence before/after the word (measured in the audio, not from timestamps)
+   - how drawn out the word is relative to this speaker's own pace
+   - steadiness (a held vowel)
+   - loudness (a stressed word is less likely to be a filler)
+   - timestamp sanity checks: no sound where the word should be, or a word stretched past 1.5 s, downgrades it to review
+
+   Pitch isn't used: it would mean keeping the raw samples (~230 MB per hour).
+4. **Labels:** score ≥ 0.75 → FILLER, ≤ 0.3 → KEEP, otherwise UNCERTAIN. Context words reach FILLER
+   only with audio evidence. Hedges and adverbs (kind of, basically…) never do. Unlabelled sounds
+   are always UNCERTAIN.
+
+The scores are rule scores, not probabilities. The thresholds in `src/lib/config.js` are hand-set
+starting points and haven't been tuned on labelled data.
+
+### Cuts
+
+Each candidate's cut is a source-time interval, clipped so it never overlaps a neighbouring word.
+Repeats also absorb the short gap before the second copy. Applying merges the selected cuts into
+`removedRanges` with one `commit()`. That's the one rule above, so preview skipping, the timeline,
+the transcript, autosave and the export EDL all follow without new media code. Silence removal is
+deliberately not part of this feature.
+
+### Limitations
+
+- Whisper (base) often leaves out "um"/"uh". Transformers.js 3.8.1 doesn't implement `prompt_ids`,
+  so it can't be prompted to transcribe verbatim. Unlabelled-sound detection only partly covers this.
+- Whisper word timestamps (cross-attention DTW) can be off by tens to hundreds of ms. Cuts follow them.
+- Self-repairs with different wording ("I went — we went") and stutters inside one Whisper word
+  ("I-I") aren't detected. English only.
+- Tested on synthetic transcripts and tone-burst audio, not on real labelled speech.
+
+### Evaluating accuracy on real recordings
+
+1. Record or collect 20–30 clips (several speakers, accents, mics), transcribe them in the app, and
+   label each Whisper word as filler / not filler. Also mark fillers missing from the transcript,
+   with their times.
+2. Run `detectFillers` on the saved words plus energy. Count:
+   - **false positives:** meaningful words labelled FILLER. This is the costly error, because it deletes speech.
+   - **false negatives:** labelled fillers that are KEEP or missing.
+   - how many items land in UNCERTAIN (the review workload)
+3. Report precision of FILLER (target ≥ 0.95) and recall over FILLER + UNCERTAIN, per category.
+   Report fillers Whisper never transcribed separately, since they're an ASR limit, not a classifier limit.
+4. Tune the thresholds and weights on half the clips and report on the other half.
+
 ## Export pipeline
 
 `src/media/exporter.js`, run from `src/workers/export.worker.js`:
@@ -80,6 +146,8 @@ src/
     snap.js         snapCut for timeline mode
     timeline.js     snapSeek, word-edge stepping, ruler ticks, range-selection helpers
     chunkAudio.js   splitting audio for Whisper
+    fillers.js      filler / disfluency detection and review -> cuts
+    acoustics.js    energy envelope, pauses, voiced runs (evidence for fillers.js)
   store/          Zustand store: words, removedRanges, undo/redo, selection
   media/          Browser media code: audio extraction, worker wrapper, ingest flow, player handle
   workers/        Web Workers (Whisper now; export later)

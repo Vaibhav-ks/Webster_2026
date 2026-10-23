@@ -10,6 +10,7 @@ import { useEditorStore } from '../store/useEditorStore.js';
 import { snapSeek } from '../lib/timeline.js';
 
 let video = null;
+let spanWatch = 0;
 
 export const player = {
   attach(el) {
@@ -33,6 +34,29 @@ export const player = {
     const s = snapSeek(t, words, gaps, duration || video?.duration || 0);
     this.seek(s);
     return s;
+  },
+  /**
+   * Play a short window around [start, end] (for reviewing a filler candidate), then
+   * pause. If the user seeks away meanwhile, stop watching without pausing.
+   */
+  playSpan(start, end, lead = 1, tail = 0.6) {
+    if (!video) return;
+    cancelAnimationFrame(spanWatch);
+    const from = Math.max(0, start - lead);
+    const stopAt = end + tail;
+    video.currentTime = from;
+    video.play();
+    const watch = () => {
+      if (!video || video.paused) return;
+      const t = video.currentTime;
+      if (t < from - 0.25 || t > stopAt + 2) return; // user took over
+      if (t >= stopAt) {
+        video.pause();
+        return;
+      }
+      spanWatch = requestAnimationFrame(watch);
+    };
+    spanWatch = requestAnimationFrame(watch);
   },
   play() {
     video?.play();

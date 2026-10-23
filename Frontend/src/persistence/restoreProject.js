@@ -1,5 +1,5 @@
 // Put a saved project back into the editor using the editor's own pipeline:
-// validateFile -> readVideoMetadata -> loadMedia -> thumbnails -> audio peaks ->
+// validateFile -> readVideoMetadata -> loadMedia -> thumbnails -> audio peaks + energy ->
 // setTranscript(words) -> removedRanges / undo history.
 //
 // Whisper is NOT re-run: the saved transcript is the original one. Every check that can
@@ -9,6 +9,7 @@
 import { useEditorStore } from '../store/useEditorStore.js';
 import { validateFile, readVideoMetadata, extractAudio } from '../media/extractAudio.js';
 import { generateThumbnails, computePeaks } from '../media/thumbnails.js';
+import { computeEnergy } from '../lib/acoustics.js';
 import { WHISPER_SAMPLE_RATE } from '../lib/config.js';
 import { prepareRestore, RestoreError } from './projectState.js';
 
@@ -47,9 +48,11 @@ export async function loadSavedProject({ file, detail }) {
     const audio = await extractAudio(file);
     if (useEditorStore.getState().videoUrl === videoUrl) {
       useEditorStore.getState().setPeaks(computePeaks(audio, WHISPER_SAMPLE_RATE));
+      useEditorStore.getState().setEnergy(computeEnergy(audio, WHISPER_SAMPLE_RATE));
     }
   } catch (err) {
-    // The waveform is a visual aid; the transcript and cuts are what matter.
+    // The waveform and energy are aids; the transcript and cuts are what matter.
+    // Filler detection falls back to transcript-only rules without energy.
     console.warn('waveform', err);
   }
   if (useEditorStore.getState().videoUrl !== videoUrl) {

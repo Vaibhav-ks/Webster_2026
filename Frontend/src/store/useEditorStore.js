@@ -39,6 +39,11 @@ const initialState = {
   // timeline visuals (derived from the media, not edit state)
   peaks: null, // Float32Array, 0..1 loudness per 10 ms
   thumbnails: [], // [{ t, url }] sorted by t
+  energy: null, // Float32Array, RMS per 10 ms (acoustic evidence for filler detection)
+
+  // filler review (UI state, not edit state: nothing changes until Apply commits cuts)
+  // null | { phase: 'analyzing' | 'review' | 'applied' | 'error', candidates, selected, audioUsed, applied, error }
+  fillerReview: null,
 
   // ui
   selection: null, // { anchor, focus } indices into items
@@ -72,6 +77,7 @@ export const useEditorStore = create((set, get) => ({
       past: [],
       future: [],
       selection: null,
+      fillerReview: null,
       status: 'ready',
       progress: 1,
       statusText: '',
@@ -120,6 +126,8 @@ export const useEditorStore = create((set, get) => ({
 
   // ---- media visuals ----
   setPeaks: (peaks) => set({ peaks }),
+  setEnergy: (energy) => set({ energy }),
+  setFillerReview: (fillerReview) => set({ fillerReview }),
   addThumbnail: (thumb) =>
     set({ thumbnails: [...get().thumbnails, thumb].sort((a, b) => a.t - b.t) }),
 

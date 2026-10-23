@@ -8,6 +8,7 @@ import { formatClock, formatTick, moveRangeEdge, snapSeek, tickStep, wordBoundar
 import { player } from '../media/player.js';
 import { deleteOrRestoreSelection, selectionIsRemoved } from './editActions.js';
 import * as I from './icons.jsx';
+import { buildFillerCuts } from '../lib/fillers.js';
 
 // Geometry (px). Rows are absolutely positioned inside the scrolling content.
 const PAD = 16; // space before 0:00 and after the end
@@ -59,12 +60,19 @@ export default function Timeline() {
   const contentW = Math.max(viewW, duration * zoom + 2 * PAD);
   const ranges = trimPreview ?? removedRanges;
 
+  // Cuts a filler review would make (selected candidates), drawn as a highlight.
+  const fillerReview = useEditorStore((s) => s.fillerReview);
+  const proposed = useMemo(
+    () => (fillerReview?.phase === 'review' ? buildFillerCuts(fillerReview.candidates, fillerReview.selected, duration) : null),
+    [fillerReview, duration],
+  );
+
   const xOf = useCallback((t) => PAD + t * zoom, [zoom]);
   const tOf = useCallback((x) => Math.min(duration, Math.max(0, (x - PAD) / zoom)), [zoom, duration]);
 
   // Latest values for the rAF loop / native listeners.
   const live = useRef({});
-  live.current = { xOf, tOf, zoom, fitPps, follow, ranges, duration, peaks, fileName };
+  live.current = { xOf, tOf, zoom, fitPps, follow, ranges, duration, peaks, fileName, proposed };
 
   // ---- size & scroll ----
   useLayoutEffect(() => {
@@ -88,7 +96,7 @@ export default function Timeline() {
     const sc = scrollerRef.current;
     const cv = canvasRef.current;
     if (!sc || !cv) return;
-    const { xOf: X, tOf: T, zoom: Z, ranges: R, duration: D, peaks: P, fileName: name } = live.current;
+    const { xOf: X, tOf: T, zoom: Z, ranges: R, duration: D, peaks: P, fileName: name, proposed: FP } = live.current;
     const w = sc.clientWidth;
     const sl = sc.scrollLeft;
     const dpr = window.devicePixelRatio || 1;
@@ -136,6 +144,20 @@ export default function Timeline() {
       const b = X(r.end) - sl;
       if (b < 0 || a > w) continue;
       ctx.fillRect(a, RULER_H - 3, Math.max(1, b - a), 3);
+    }
+    // Proposed filler cuts: highlight band on the ruler plus a light wash over the tracks
+    if (FP?.length) {
+      ctx.fillStyle = col('--c-highlight');
+      for (const r of FP) {
+        const a = X(r.start) - sl;
+        const b = X(r.end) - sl;
+        if (b < 0 || a > w) continue;
+        ctx.globalAlpha = 1;
+        ctx.fillRect(a, RULER_H - 6, Math.max(1.5, b - a), 3);
+        ctx.globalAlpha = 0.16;
+        ctx.fillRect(a, RULER_H, Math.max(1.5, b - a), CONTENT_H - RULER_H);
+      }
+      ctx.globalAlpha = 1;
     }
 
     // Audio track
@@ -192,7 +214,7 @@ export default function Timeline() {
 
   useEffect(() => {
     draw();
-  }, [draw, zoom, viewW, ranges, peaks, theme, duration, fileName]);
+  }, [draw, zoom, viewW, ranges, peaks, theme, duration, fileName, proposed]);
 
   const onScroll = () => {
     draw();

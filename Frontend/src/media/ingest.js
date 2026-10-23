@@ -4,6 +4,7 @@ import { useEditorStore } from '../store/useEditorStore.js';
 import { validateFile, readVideoMetadata, extractAudio } from './extractAudio.js';
 import { transcribe } from './transcribe.js';
 import { generateThumbnails, computePeaks } from './thumbnails.js';
+import { computeEnergy } from '../lib/acoustics.js';
 import { WHISPER_SAMPLE_RATE } from '../lib/config.js';
 
 export async function ingestFile(file) {
@@ -25,6 +26,8 @@ export async function ingestFile(file) {
     store.setStatus('extracting', 'Extracting audio…');
     const audio = await extractAudio(file);
     useEditorStore.getState().setPeaks(computePeaks(audio, WHISPER_SAMPLE_RATE));
+    // Must happen before transcribe(): the samples are transferred to the worker.
+    useEditorStore.getState().setEnergy(computeEnergy(audio, WHISPER_SAMPLE_RATE));
 
     store.setStatus('model', 'Loading speech model (first time only)…');
     let started = false;
