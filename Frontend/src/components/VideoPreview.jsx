@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '../store/useEditorStore.js';
-import { buildEDL, editedDuration, isSpanRemoved, nextPlayableTime, outputToSource, sourceToOutput } from '../lib/edl.js';
+import { buildEDL, editedDuration, nextPlayableTime, outputToSource, sourceToOutput } from '../lib/edl.js';
 import { findWordIndexAt } from '../lib/transcript.js';
 import { formatClock, snapSeek } from '../lib/timeline.js';
 import { player } from '../media/player.js';
 import { stepBoundary, usePlaying } from './Timeline.jsx';
 import * as I from './icons.jsx';
+import SubtitleCanvas from './SubtitleCanvas.jsx';
+import SubtitlePanel from './SubtitlePanel.jsx';
+import { useSubtitleStore } from '../store/useSubtitleStore.js';
 
 /**
  * Preview: a <video> plus a requestAnimationFrame loop that
@@ -18,7 +21,8 @@ export default function VideoPreview() {
   const videoRef = useRef(null);
   const wrapRef = useRef(null);
   const videoUrl = useEditorStore((s) => s.videoUrl);
-  const [captions, setCaptions] = useState(true);
+  const subtitlesOn = useSubtitleStore((s) => s.enabled);
+  const panelOpen = useSubtitleStore((s) => s.panelOpen);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const playing = usePlaying();
@@ -94,12 +98,14 @@ export default function VideoPreview() {
         <I.Play className="translate-x-[2px]" />
       </button>
 
-      {captions && <LiveCaption />}
+      {/* Subtitles: same renderer as the export; drag to move, corner to resize. */}
+      <SubtitleCanvas videoRef={videoRef} onBackgroundClick={() => player.togglePlay()} />
+      <SubtitlePanel />
 
       {/* Control bar */}
       <div
         className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-4 pb-3 pt-10 text-white transition-opacity duration-300 ${
-          playing ? 'opacity-0 group-hover/video:opacity-100' : 'opacity-100'
+          playing && !panelOpen ? 'opacity-0 group-hover/video:opacity-100' : 'opacity-100'
         }`}
       >
         <ScrubBar />
@@ -133,8 +139,29 @@ export default function VideoPreview() {
           </div>
           <OutputClock />
           <div className="ml-auto flex items-center gap-1">
-            <CtrlBtn label={captions ? 'Hide captions' : 'Show captions'} onClick={() => setCaptions(!captions)} active={captions}>
-              <span className="rounded-[4px] border-[1.5px] border-current px-[3px] text-[9px] font-bold leading-[13px]">CC</span>
+            <CtrlBtn
+              label={subtitlesOn ? 'Turn subtitles off' : 'Add subtitles'}
+              onClick={() => useSubtitleStore.getState().toggle()}
+              active={subtitlesOn}
+            >
+              <span
+                className={`rounded-[4px] border-[1.5px] px-[3px] text-[9px] font-bold leading-[13px] ${
+                  subtitlesOn ? 'border-scarlet-400 bg-scarlet-400 text-white' : 'border-current'
+                }`}
+              >
+                CC
+              </span>
+            </CtrlBtn>
+            <CtrlBtn
+              label="Subtitle style, size and position"
+              onClick={() => {
+                const s = useSubtitleStore.getState();
+                if (!s.enabled) s.update({ enabled: true });
+                s.setPanelOpen(!s.panelOpen);
+              }}
+              active={panelOpen}
+            >
+              <span className="text-[13px] font-bold leading-none">Aa</span>
             </CtrlBtn>
             <CtrlBtn label="Fullscreen" onClick={fullscreen}>
               <I.Expand />
@@ -250,35 +277,5 @@ function OutputClock() {
       <span ref={ref}>0:00.00</span>
       <span className="text-white/50"> / {formatClock(total)}</span>
     </span>
-  );
-}
-
-/** A few words around the current one, karaoke style. Removed words are hidden. */
-function LiveCaption() {
-  const words = useEditorStore((s) => s.words);
-  const activeWordId = useEditorStore((s) => s.activeWordId);
-  const removedRanges = useEditorStore((s) => s.removedRanges);
-  const status = useEditorStore((s) => s.status);
-  if (status !== 'ready' || !activeWordId) return null;
-  const i = words.findIndex((w) => w.id === activeWordId);
-  if (i < 0 || isSpanRemoved(words[i], removedRanges)) return null;
-
-  const line = [];
-  for (let k = Math.max(0, i - 3); k <= Math.min(words.length - 1, i + 3); k++) {
-    if (!isSpanRemoved(words[k], removedRanges)) line.push(words[k]);
-  }
-  return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-20 flex justify-center px-6">
-      <div className="max-w-[90%] rounded-xl bg-black/60 px-4 py-2 text-center text-lg font-semibold leading-snug text-white/70 backdrop-blur-sm">
-        {line.map((w) => (
-          <span
-            key={w.id}
-            className={`transition-colors duration-100 ${w.id === activeWordId ? 'text-highlight' : ''}`}
-          >
-            {w.text}{' '}
-          </span>
-        ))}
-      </div>
-    </div>
   );
 }

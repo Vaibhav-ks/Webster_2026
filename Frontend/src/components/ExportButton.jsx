@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { useEditorStore } from '../store/useEditorStore.js';
 import { buildEDL } from '../lib/edl.js';
 import { runExport } from '../media/runExport.js';
+import { useSubtitleStore } from '../store/useSubtitleStore.js';
+import { useCaptionPages } from '../store/useCaptionPages.js';
 
 import * as I from './icons.jsx';
 
@@ -26,6 +28,7 @@ export default function ExportButton() {
   const status = useEditorStore((s) => s.status);
   const duration = useEditorStore((s) => s.duration);
   const removedRanges = useEditorStore((s) => s.removedRanges);
+  const captionPages = useCaptionPages();
 
   // state: null | { phase: 'running', progress } | { phase: 'done', url, size, seconds, outLength, info } | { phase: 'error', message }
   const [job, setJob] = useState(null);
@@ -42,7 +45,14 @@ export default function ExportButton() {
     const t0 = performance.now();
     setJob({ phase: 'running', progress: 0 });
 
+    // Subtitles on in the preview -> burned into the export with the same style and layout.
+    const sub = useSubtitleStore.getState();
+    const captions = sub.enabled
+      ? { pages: captionPages, styleId: sub.styleId, settings: { x: sub.x, y: sub.y, scale: sub.scale } }
+      : null;
+
     const { promise, cancel } = runExport(file, edl, {
+      captions,
       onProgress: (progress) => setJob({ phase: 'running', progress }),
     });
     cancelRef.current = cancel;
@@ -99,6 +109,7 @@ export default function ExportButton() {
                     {formatBytes(job.size)} · {job.info.width}×{job.info.height} · {job.info.videoCodec}
                     {job.info.audioCodec ? ` + ${job.info.audioCodec}` : ' (no audio)'}
                   </li>
+                  {job.info.subtitles && <li>Subtitles burned in</li>}
                   <li>
                     Rendered in {job.seconds.toFixed(1)} s ({(job.outLength / job.seconds).toFixed(1)}× real time)
                   </li>

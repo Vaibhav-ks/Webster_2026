@@ -29,15 +29,19 @@ import {
   getFirstEncodableVideoCodec,
   getFirstEncodableAudioCodec,
 } from 'mediabunny';
+import { drawCaption, findPageAt } from '../lib/captions.js';
+import { getCaptionStyle } from '../lib/captionStyles.js';
 
 const FADE_S = 0.005; // audio fade at every cut edge
 const even = (n) => Math.max(2, Math.round(n / 2) * 2); // H.264 needs even sizes
 
 /**
- * @param {{ file: File|Blob, edl: Array<{start:number,end:number}>, onProgress?: (p:number)=>void }} opts
+ * @param {{ file: File|Blob, edl: Array<{start:number,end:number}>, onProgress?: (p:number)=>void,
+ *           captions?: { pages, styleId, settings } | null }} opts
+ *   captions: burned-in subtitles, drawn with the same drawCaption() the preview uses.
  * @returns {Promise<{ buffer: ArrayBuffer, videoCodec: string, audioCodec: string|null, width: number, height: number }>}
  */
-export async function exportVideo({ file, edl, onProgress }) {
+export async function exportVideo({ file, edl, onProgress, captions = null }) {
   if (!edl.length) throw new Error('Nothing to export: everything has been cut.');
 
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
@@ -85,9 +89,16 @@ export async function exportVideo({ file, edl, onProgress }) {
     onProgress?.(Math.min(1, p));
   };
 
-  const drawFrame = (frameCanvas) => {
+  const captionStyle = captions?.pages?.length ? getCaptionStyle(captions.styleId) : null;
+
+  /** One output frame at source time t: the video picture, then overlays on top. */
+  const drawFrame = (frameCanvas, t) => {
     ctx.drawImage(frameCanvas, 0, 0, width, height);
-    // Victory tier: subtitles / titles / b-roll get drawn here.
+    if (captionStyle) {
+      const page = findPageAt(captions.pages, t);
+      if (page) drawCaption(ctx, page, t, captionStyle, captions.settings, width, height);
+    }
+    // Next: titles / b-roll get drawn here.
   };
 
   const videoJob = async () => {
@@ -99,7 +110,7 @@ export async function exportVideo({ file, edl, onProgress }) {
         const start = Math.max(frame.timestamp, k.start);
         const end = Math.min(frame.timestamp + (frame.duration || 1 / 30), k.end);
         if (end - start <= 1e-6) continue;
-        drawFrame(frame.canvas);
+        drawFrame(frame.canvas, start);
         await videoSource.add(offset + (start - k.start), end - start);
         videoDone = offset + (end - k.start);
         report();
@@ -136,7 +147,7 @@ export async function exportVideo({ file, edl, onProgress }) {
   await Promise.all([videoJob(), audioJob()]);
   await output.finalize();
 
-  return { buffer: output.target.buffer, videoCodec, audioCodec, width, height };
+  return { buffer: output.target.buffer, videoCodec, audioCodec, width, height, subtitles: Boolean(captionStyle) };
 }
 
 /** Cut an AudioSample down to the kept range k, fade the edges, and rebase its timestamp. */

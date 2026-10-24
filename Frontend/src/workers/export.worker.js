@@ -13,6 +13,7 @@ self.onmessage = async ({ data }) => {
     const result = await exportVideo({
       file: data.file,
       edl: data.edl,
+      captions: data.captions ?? null,
       onProgress: (p) => {
         // Throttle: only post when progress moves by 0.5% or more.
         if (p - last >= 0.005 || p === 1) {

@@ -63,6 +63,29 @@ Light and dark themes: toggle in the header. The choice is remembered per browse
 to the system setting. Colours are CSS variables in `src/index.css` (`--c-*`), used through
 Tailwind tokens such as `bg-surface`, `text-fg`, `border-line`.
 
+## Subtitles
+
+**CC** in the preview's control bar turns subtitles on with one click. **Aa** opens the style panel.
+
+- **Styles:** Classic, Boxed, Karaoke (spoken words fill in), Pop (uppercase, the active word
+  pops), Highlight (a box behind the active word), Reveal (words appear as they're spoken). Each
+  card in the panel is drawn by the real renderer, so it looks exactly like the output.
+- **Position and size:** drag the subtitles in the preview to move them (they snap to the centre),
+  and drag the corner square to resize. You can also use the Top / Middle / Bottom presets and the
+  size slider.
+- **Words per caption:** 1–8. A new caption also starts at a sentence end or a real pause. Pauses
+  you cut don't count, and cut words never appear.
+- **Export:** when subtitles are on, they're burned into the MP4 with the same style and layout.
+
+How it works (`src/lib/captions.js`, `src/lib/captionStyles.js`): `buildCaptionPages()` groups
+the kept words into captions, rebuilt from `removedRanges` whenever you edit. `drawCaption()`
+draws a caption at a given time on any 2D canvas. The preview calls it on a canvas over the
+video, inside the visible picture area, and the exporter calls it on each frame's
+OffscreenCanvas in the worker. Sizes are fractions of the frame's shorter side, so the result
+matches at any resolution and in portrait. Only system fonts are used, because a worker can't
+see the page's web fonts. Settings live in `src/store/useSubtitleStore.js`: they're remembered
+per browser, aren't part of undo, and aren't saved with cloud projects yet.
+
 ## Filler removal
 
 **Transcript → Remove fillers**. The app finds hesitations, discourse markers, repeated words
@@ -136,7 +159,8 @@ deliberately not part of this feature.
 1. Build the EDL from `removedRanges` (the same function the preview uses).
 2. For each kept range, decode video frames and audio samples separately (WebCodecs via mediabunny).
 3. Rebase timestamps: both tracks share one running offset, so the output is continuous and in sync.
-4. Video frames are drawn onto an OffscreenCanvas, then encoded. Subtitles, titles and b-roll will be drawn here later.
+4. Video frames are drawn onto an OffscreenCanvas, then encoded. Subtitles (when on) are drawn on each frame with the
+   same `drawCaption()` the preview uses. Titles and b-roll will be drawn here later.
 5. Audio is trimmed to the exact sample at each cut, with a 5 ms fade so cuts don't click.
 6. Mux to MP4 and download. Codec choice: H.264 (falls back to VP9 / AV1), AAC (falls back to Opus).
 
