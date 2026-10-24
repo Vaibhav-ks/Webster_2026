@@ -5,6 +5,7 @@ import { buildEDL, editedDuration, isSpanRemoved, sourceToOutput } from '../lib/
 import { findRangeAt, normalize } from '../lib/ranges.js';
 import { snapCut } from '../lib/snap.js';
 import { formatClock, formatTick, moveRangeEdge, snapSeek, tickStep, wordBoundaries, nextBoundary, prevBoundary } from '../lib/timeline.js';
+import { gapCutTimes, splitTarget } from '../lib/transcript.js';
 import { player } from '../media/player.js';
 import { deleteOrRestoreSelection, selectionIsRemoved } from './editActions.js';
 import * as I from './icons.jsx';
@@ -21,6 +22,11 @@ const ROWS = {
 const CONTENT_H = 190;
 const MAX_PPS = 900; // max zoom: px per second
 
+// Razor cursor (scissors), with crosshair as the fallback.
+const RAZOR_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><g><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></g><g stroke="black" stroke-width="1.5"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></g></svg>',
+)}") 12 12, crosshair`;
+
 /**
  * Multi-track timeline: ruler, caption (word) track, video filmstrip and audio waveform.
  *
@@ -35,6 +41,7 @@ export default function Timeline() {
   const items = useEditorStore((s) => s.items);
   const removedRanges = useEditorStore((s) => s.removedRanges);
   const peaks = useEditorStore((s) => s.peaks);
+  const splits = useEditorStore((s) => s.splits);
   const fileName = useEditorStore((s) => s.file?.name ?? 'audio');
   const status = useEditorStore((s) => s.status);
   const theme = useTheme((s) => s.theme);
@@ -45,6 +52,7 @@ export default function Timeline() {
   const playheadRef = useRef(null);
   const hoverRef = useRef(null);
   const hoverLabelRef = useRef(null);
+  const hoverLineRef = useRef(null);
   const gesture = useRef(null);
   const pendingScroll = useRef(null);
 
@@ -52,6 +60,9 @@ export default function Timeline() {
   const [scrollLeft, setScrollLeft] = useState(0);
   const [pps, setPps] = useState(null); // null = fit to width
   const [follow, setFollow] = useState(true);
+  // 'select' (V): click to seek, drag to select, drag red handles to trim.
+  // 'razor'  (C): click inside a pause to split it into pieces (words can't be split).
+  const [tool, setTool] = useState('select');
   const [trimPreview, setTrimPreview] = useState(null); // removedRanges while dragging a trim handle
   const trimRef = useRef(null);
 
@@ -72,7 +83,7 @@ export default function Timeline() {
 
   // Latest values for the rAF loop / native listeners.
   const live = useRef({});
-  live.current = { xOf, tOf, zoom, fitPps, follow, ranges, duration, peaks, fileName, proposed };
+  live.current = { xOf, tOf, zoom, fitPps, follow, ranges, duration, peaks, fileName, proposed, tool };
 
   // ---- size & scroll ----
   useLayoutEffect(() => {
@@ -287,6 +298,8 @@ export default function Timeline() {
       if (e.key === '=' || e.key === '+') zoomTo(live.current.zoom * 1.5);
       else if (e.key === '-' || e.key === '_') zoomTo(live.current.zoom / 1.5);
       else if (e.key === '0') zoomTo(0);
+      else if (e.key === 'c' || e.key === 'C') setTool('razor');
+      else if (e.key === 'v' || e.key === 'V' || e.key === 'Escape') setTool('select');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -296,14 +309,25 @@ export default function Timeline() {
   const localX = (e) => e.clientX - contentRef.current.getBoundingClientRect().left;
 
   const showHover = (x) => {
-    const { words, gaps, duration: D } = useEditorStore.getState();
-    const t = snapSeek(tOf(x), words, gaps, D);
+    const { words, gaps, duration: D, removedRanges: rr, splits: sp } = useEditorStore.getState();
+    const razor = live.current.tool === 'razor';
+    // Razor: show exactly where the split would go, and whether it's allowed there.
+    const t = razor ? snapCut(tOf(x), words, gaps) : snapSeek(tOf(x), words, gaps, D);
+    const ok = razor && Boolean(splitTarget(t, gaps, gapCutTimes(sp, rr)));
     const hx = xOf(t);
     if (hoverRef.current) {
       hoverRef.current.style.opacity = '1';
       hoverRef.current.style.transform = `translateX(${hx}px)`;
     }
-    if (hoverLabelRef.current) hoverLabelRef.current.textContent = formatClock(t);
+    if (hoverLineRef.current) {
+      hoverLineRef.current.style.borderColor = razor ? (ok ? 'var(--c-accent)' : 'var(--c-subtle)') : '';
+      hoverLineRef.current.style.borderLeftStyle = razor && ok ? 'solid' : 'dashed';
+    }
+    if (hoverLabelRef.current) {
+      hoverLabelRef.current.textContent = !razor ? formatClock(t) : ok ? `Split ${formatClock(t)}` : "Words can't be split";
+      hoverLabelRef.current.style.background = razor && ok ? 'var(--c-accent)' : '';
+      hoverLabelRef.current.style.color = razor && ok ? '#fff' : '';
+    }
   };
   const hideHover = () => {
     if (hoverRef.current) hoverRef.current.style.opacity = '0';
@@ -321,6 +345,12 @@ export default function Timeline() {
     const x = localX(e);
     const y = e.clientY - contentRef.current.getBoundingClientRect().top;
     const { words, gaps } = useEditorStore.getState();
+    if (tool === 'razor' && y >= RULER_H) {
+      // Same snapping as the hover guide; addSplit refuses anything outside a pause.
+      useEditorStore.getState().addSplit(snapCut(tOf(x), words, gaps));
+      showHover(x);
+      return;
+    }
     contentRef.current.setPointerCapture(e.pointerId);
     if (y < RULER_H) {
       gesture.current = { mode: 'scrub' };
@@ -380,7 +410,15 @@ export default function Timeline() {
 
   return (
     <div className="panel fade-up flex shrink-0 flex-col overflow-hidden" style={{ animationDelay: '120ms' }}>
-      <TimelineToolbar zoom={zoom} fitPps={fitPps} zoomTo={zoomTo} follow={follow} setFollow={setFollow} />
+      <TimelineToolbar
+        zoom={zoom}
+        fitPps={fitPps}
+        zoomTo={zoomTo}
+        follow={follow}
+        setFollow={setFollow}
+        tool={tool}
+        setTool={setTool}
+      />
 
       <div className="flex min-h-0 flex-1">
         <TrackLabels />
@@ -392,7 +430,7 @@ export default function Timeline() {
           <div
             ref={contentRef}
             className="relative touch-none select-none overflow-clip"
-            style={{ width: contentW, height: CONTENT_H }}
+            style={{ width: contentW, height: CONTENT_H, cursor: tool === 'razor' ? RAZOR_CURSOR : undefined }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -403,8 +441,18 @@ export default function Timeline() {
 
             {duration > 0 && (
               <>
-                <CaptionTrack items={items} ranges={ranges} xOf={xOf} winA={winA} winB={winB} zoom={zoom} />
-                <VideoTrack ranges={ranges} xOf={xOf} tOf={tOf} winA={winA} winB={winB} startTrim={startTrim} />
+                <CaptionTrack items={items} ranges={ranges} xOf={xOf} winA={winA} winB={winB} zoom={zoom} tool={tool} />
+                <VideoTrack
+                  ranges={ranges}
+                  splits={splits}
+                  xOf={xOf}
+                  tOf={tOf}
+                  winA={winA}
+                  winB={winB}
+                  startTrim={startTrim}
+                  tool={tool}
+                />
+                <SplitMarkers splits={splits} xOf={xOf} winA={winA} winB={winB} />
                 <SelectionOverlay xOf={xOf} />
               </>
             )}
@@ -414,7 +462,7 @@ export default function Timeline() {
               ref={hoverRef}
               className="pointer-events-none absolute left-0 top-0 z-20 h-full opacity-0 transition-opacity duration-150"
             >
-              <div className="absolute top-0 h-full border-l border-dashed border-fg/30" />
+              <div ref={hoverLineRef} className="absolute top-0 h-full border-l border-dashed border-fg/30" />
               <div
                 ref={hoverLabelRef}
                 className="absolute -translate-x-1/2 rounded bg-fg px-1.5 py-0.5 font-mono text-[10px] font-medium text-canvas shadow"
@@ -462,7 +510,7 @@ function TrackLabels() {
 
 // ---------------------------------------------------------------------------
 
-const CaptionTrack = memo(function CaptionTrack({ items, ranges, xOf, winA, winB, zoom }) {
+const CaptionTrack = memo(function CaptionTrack({ items, ranges, xOf, winA, winB, zoom, tool }) {
   const selection = useEditorStore((s) => s.selection);
   const activeWordId = useEditorStore((s) => s.activeWordId);
   const lo = selection ? Math.min(selection.anchor, selection.focus) : -1;
@@ -470,6 +518,7 @@ const CaptionTrack = memo(function CaptionTrack({ items, ranges, xOf, winA, winB
 
   const onDown = (index, e) => {
     if (e.button !== 0) return;
+    if (tool === 'razor') return; // let the click reach the track: the razor handles it
     e.stopPropagation();
     const s = useEditorStore.getState();
     if (e.shiftKey && s.selection) {
@@ -522,7 +571,7 @@ const CaptionTrack = memo(function CaptionTrack({ items, ranges, xOf, winA, winB
 
 // ---------------------------------------------------------------------------
 
-const VideoTrack = memo(function VideoTrack({ ranges, xOf, tOf, winA, winB, startTrim }) {
+const VideoTrack = memo(function VideoTrack({ ranges, splits, xOf, tOf, winA, winB, startTrim, tool }) {
   const thumbnails = useEditorStore((s) => s.thumbnails);
   const duration = useEditorStore((s) => s.duration);
   const vw = useEditorStore((s) => s.videoWidth);
@@ -532,7 +581,21 @@ const VideoTrack = memo(function VideoTrack({ ranges, xOf, tOf, winA, winB, star
   const x0 = xOf(0);
   const x1 = xOf(duration);
   const tileW = Math.min(150, Math.max(44, (h * (vw || 16)) / (vh || 9)));
-  const edl = useMemo(() => buildEDL(ranges, duration), [ranges, duration]);
+  // Kept clips, divided at razor marks so each piece is framed as its own clip.
+  const clips = useMemo(() => {
+    const out = [];
+    for (const k of buildEDL(ranges, duration)) {
+      let a = k.start;
+      for (const t of splits) {
+        if (t > a && t < k.end) {
+          out.push({ start: a, end: t });
+          a = t;
+        }
+      }
+      out.push({ start: a, end: k.end });
+    }
+    return out;
+  }, [ranges, splits, duration]);
 
   const tiles = [];
   if (thumbnails.length) {
@@ -563,7 +626,7 @@ const VideoTrack = memo(function VideoTrack({ ranges, xOf, tOf, winA, winB, star
       </div>
 
       {/* Kept clips: framed like separate clips */}
-      {edl.map((k) => {
+      {clips.map((k) => {
         const a = xOf(k.start);
         const b = xOf(k.end);
         if (b < winA || a > winB) return null;
@@ -593,14 +656,37 @@ const VideoTrack = memo(function VideoTrack({ ranges, xOf, tOf, winA, winB, star
                 </span>
               </span>
             )}
-            <TrimHandle side="start" onPointerDown={(e) => startTrim(i, 'start', e)} />
-            <TrimHandle side="end" onPointerDown={(e) => startTrim(i, 'end', e)} />
+            {tool !== 'razor' && (
+              <>
+                <TrimHandle side="start" onPointerDown={(e) => startTrim(i, 'start', e)} />
+                <TrimHandle side="end" onPointerDown={(e) => startTrim(i, 'end', e)} />
+              </>
+            )}
           </div>
         );
       })}
     </>
   );
 });
+
+/** Razor marks: a thin line through the word and video rows. */
+function SplitMarkers({ splits, xOf, winA, winB }) {
+  return (
+    <>
+      {splits.map((t) => {
+        const x = xOf(t);
+        if (x < winA || x > winB) return null;
+        return (
+          <div
+            key={t}
+            className="pointer-events-none absolute z-[15] w-0 border-l-2 border-accent"
+            style={{ left: x - 1, top: ROWS.caption.top - 4, height: ROWS.video.top + ROWS.video.h - ROWS.caption.top + 8 }}
+          />
+        );
+      })}
+    </>
+  );
+}
 
 function TrimHandle({ side, onPointerDown }) {
   return (
@@ -662,7 +748,7 @@ function SelectionOverlay({ xOf }) {
 
 // ---------------------------------------------------------------------------
 
-function TimelineToolbar({ zoom, fitPps, zoomTo, follow, setFollow }) {
+function TimelineToolbar({ zoom, fitPps, zoomTo, follow, setFollow, tool, setTool }) {
   const ready = useEditorStore((s) => s.status === 'ready');
   const span = useSelectionSpan();
   const restoring = useEditorStore((s) => selectionIsRemoved(s));
@@ -674,13 +760,20 @@ function TimelineToolbar({ zoom, fitPps, zoomTo, follow, setFollow }) {
 
   return (
     <div className="flex items-center gap-0.5 overflow-x-auto border-b border-line px-2 py-1.5 [scrollbar-width:none]">
+      <IconBtn label="Selection tool (V)" active={tool === 'select'} onClick={() => setTool('select')}>
+        <I.Pointer />
+      </IconBtn>
+      <IconBtn label="Razor: split a pause (C)" active={tool === 'razor'} disabled={!ready} onClick={() => setTool('razor')}>
+        <I.Scissors />
+      </IconBtn>
+      <Divider />
       <IconBtn
-        label={restoring ? 'Restore selection (Del)' : 'Cut selection (Del)'}
+        label={restoring ? 'Restore selection (Del)' : 'Delete selection (Del)'}
         disabled={!ready || !span}
         onClick={deleteOrRestoreSelection}
         danger={!restoring}
       >
-        {restoring ? <I.Restore /> : <I.Scissors />}
+        {restoring ? <I.Restore /> : <I.Trash />}
       </IconBtn>
       <IconBtn label="Clear selection (Esc)" disabled={!span} onClick={() => useEditorStore.getState().setSelection(null)}>
         <I.X />

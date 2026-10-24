@@ -64,6 +64,12 @@ export const Scissors = (p) => (
     <path d="M8.12 8.12 12 12" />
   </Icon>
 );
+/** Selection tool (arrow cursor). */
+export const Pointer = (p) => (
+  <Icon {...p}>
+    <path d="M4 3l7.5 18 2.4-7.6L21.5 11z" />
+  </Icon>
+);
 export const Trash = (p) => (
   <Icon {...p}>
     <path d="M3 6h18" />

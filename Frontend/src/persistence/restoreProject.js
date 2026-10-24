@@ -60,7 +60,8 @@ export async function loadSavedProject({ file, detail }) {
   }
 
   useEditorStore.getState().setTranscript(prepared.words); // derives gaps/items, status 'ready'
-  useEditorStore.setState({
+  // loadEdits (not setState) so the transcript items are re-derived from the cuts.
+  useEditorStore.getState().loadEdits({
     removedRanges: prepared.removedRanges,
     past: prepared.past,
     future: prepared.future,

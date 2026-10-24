@@ -47,6 +47,12 @@ browser caches it.
   hover guide shows where a click will land before you click.
 - **Edit:** drag on the tracks to select a range, then Delete. Drag the red handles on a cut to
   trim it. Click a word chip to select it; Shift-click extends the selection.
+- **Razor (C) / Selection (V)**, as in Premiere: with the razor, click inside a pause to split it.
+  Each piece becomes its own token in the transcript and its own clip on the timeline, so you can
+  delete either piece. Words can't be split: over speech the guide turns grey. Cutting the middle
+  out of a pause also divides its token, so every remaining piece stays editable. Splits are
+  undoable. A split that was used for a cut is saved with the project (as a cut edge); a split
+  with nothing cut next to it is a temporary marker and isn't saved.
 - **Navigate:** ← / → step word edge by word edge. Ctrl/⌘ + wheel or `+` / `-` zoom, `0` fits.
   The crosshair button follows the playhead during playback.
 

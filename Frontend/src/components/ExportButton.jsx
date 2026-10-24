@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditorStore } from '../store/useEditorStore.js';
 import { buildEDL } from '../lib/edl.js';
 import { runExport } from '../media/runExport.js';
@@ -69,7 +70,9 @@ export default function ExportButton() {
         <I.Download /> Export
       </button>
 
-      {job && (
+      {/* Portal to <body>: the header uses backdrop-filter, which would otherwise make this
+          "fixed" overlay position itself relative to the header instead of the window. */}
+      {job && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="panel fade-up w-full max-w-md p-6">
             {job.phase === 'running' && (
@@ -125,7 +128,8 @@ export default function ExportButton() {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

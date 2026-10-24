@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalize, addRange, subtractRange, complement, overlapLength, findRangeAt } from './ranges.js';
 import { buildEDL, isSpanRemoved, editedDuration, nextPlayableTime, sourceToOutput, outputToSource } from './edl.js';
-import { deriveGaps, buildTranscriptItems, findWordIndexAt } from './transcript.js';
+import { deriveGaps, buildTranscriptItems, findWordIndexAt, gapPieces, gapCutTimes, splitTarget } from './transcript.js';
 import { snapCut } from './snap.js';
 import { chunkAudio } from './chunkAudio.js';
 
@@ -139,4 +139,27 @@ test('range selection helpers', () => {
   assert.equal(rangeIsRemoved({ start: 1, end: 2 }, [{ start: 1.5, end: 2.5 }]), false);
   const moved = moveRangeEdge([{ start: 1, end: 2 }, { start: 3, end: 4 }], 0, 'end', 3.5);
   assert.deepEqual(moved[0], { start: 1, end: 3 }); // clamped to neighbour
+});
+test('gap pieces: a pause is divided at razor marks and cut edges inside it', () => {
+  const gaps = [{ start: 1, end: 5 }];
+  assert.deepEqual(gapPieces(gaps, []).map((p) => [p.start, p.end]), [[1, 5]]);
+  assert.deepEqual(gapPieces(gaps, [3]).map((p) => [p.start, p.end]), [[1, 3], [3, 5]]);
+  // edges and marks too close to an edge (or to each other) are ignored
+  assert.deepEqual(gapPieces(gaps, [1, 1.01, 3, 3.02, 5]).map((p) => [p.start, p.end]), [[1, 3], [3, 5]]);
+  assert.deepEqual(gapCutTimes([3], [{ start: 2, end: 4 }]), [2, 3, 4]);
+});
+
+test('split gap tokens keep their ids stable when unsplit', () => {
+  const ws = [{ id: 'w0', text: 'a', start: 0, end: 1 }, { id: 'w1', text: 'b', start: 5, end: 6 }];
+  const gaps = deriveGaps(ws, 6);
+  assert.deepEqual(buildTranscriptItems(ws, gaps).map((i) => i.id), ['w0', 'gap-0', 'w1']);
+  assert.deepEqual(buildTranscriptItems(ws, gaps, [3]).map((i) => i.id), ['w0', 'gap-0-0', 'gap-0-1', 'w1']);
+});
+
+test('splitTarget: only strictly inside a pause, never on a word', () => {
+  const gaps = [{ start: 1, end: 5 }];
+  assert.ok(splitTarget(3, gaps));
+  assert.equal(splitTarget(0.5, gaps), null);
+  assert.equal(splitTarget(1.01, gaps), null);
+  assert.equal(splitTarget(3.01, gaps, [3]), null);
 });

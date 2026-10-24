@@ -2,6 +2,7 @@
 // design tokens (panel, bg-surface, text-muted, accent…) so it looks native.
 
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 export const btn =
   'inline-flex h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold transition-all duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40';
@@ -27,7 +28,8 @@ export function Modal({ title, onClose, children, wide = false, labelledBy = 'mo
     return () => window.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
-  return (
+  // Rendered into <body> so no ancestor (e.g. a backdrop-filter header) can move it.
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
@@ -53,7 +55,8 @@ export function Modal({ title, onClose, children, wide = false, labelledBy = 'mo
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
