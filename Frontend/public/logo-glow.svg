@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff6a70"/>
+      <stop offset=".45" stop-color="#e0313a"/>
+      <stop offset="1" stop-color="#7a0e14"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
+      <stop offset=".48" stop-color="#fff" stop-opacity=".04"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="halo" cx=".5" cy=".55" r=".5">
+      <stop offset="0" stop-color="#ff3b44" stop-opacity=".55"/>
+      <stop offset=".35" stop-color="#e0313a" stop-opacity=".30"/>
+      <stop offset=".7" stop-color="#b81f28" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#b81f28" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024"><feGaussianBlur stdDeviation="40"/></filter>
+    <filter id="iconGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="9" result="b"/>
+      <feFlood flood-color="#ffd6d8" flood-opacity=".9"/>
+      <feComposite in2="b" operator="in" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- outer halo -->
+  <circle cx="512" cy="530" r="500" fill="url(#halo)"/>
+  <rect x="232" y="262" width="560" height="560" rx="132" fill="#ff3b44" opacity=".7" filter="url(#blur)"/>
+  <!-- tile -->
+  <rect x="232" y="232" width="560" height="560" rx="132" fill="url(#bg)"/>
+  <rect x="232" y="232" width="560" height="560" rx="132" fill="url(#shine)"/>
+  <rect x="234" y="234" width="556" height="556" rx="130" fill="none" stroke="#ffb3b7" stroke-opacity=".45" stroke-width="4"/>
+  <!-- scissors -->
+  <g filter="url(#iconGlow)">
+    <g transform="translate(368 368) scale(12)" fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/>
+      <path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/>
+    </g>
+  </g>
+</svg>
